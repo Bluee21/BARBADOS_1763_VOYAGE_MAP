@@ -6,8 +6,6 @@
     <title>Barbados Voyage Latitude & Longitude</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
     <style>
         body, .container {
             margin: 0;
@@ -56,13 +54,12 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-polylinedecorator/1.1.0/leaflet.polylineDecorator.min.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
 <script>
     const map = L.map('map').setView([13.1939, -59.5432], 4); // Center on Barbados
 
     // Add custom tile layer
-    const customTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+    const customTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="http://hot.openstreetmap.org/">Humanitarian OpenStreetMap Team</a>'
     }).addTo(map);
 
@@ -113,7 +110,7 @@
         return sorted;
     }
 
-    // Function to determine the appropriate link for each cooridinate 
+    // Function to determine the appropriate link for each coordinate 
     function getLink(entry) {
         if (entry["Both Links"]) {
             return `<a href="${entry["Both Links"]}" target="_blank">View Coordinates</a>`;
@@ -165,14 +162,15 @@
                 const locationItem = document.createElement('div');
                 locationItem.innerHTML = `${title}<br>${link}<br>Lat: ${lat}, Lon: ${lon}`;
                 locationItem.onclick = () => {
-                    map.setView([lat, lon], 10);
+                    map.setView([lat, lon]);
+                    map.setZoom(8);
                     marker.openPopup();
                 };
                 locationDiv.appendChild(locationItem);
             });
 
-                       // Draw the full route connecting all points
-                       if (fullRouteCoordinates.length > 1) {
+            // Draw the full route connecting all points
+            if (fullRouteCoordinates.length > 1) {
                 // Reverse the coordinate order 
                 const correctedRouteCoordinates = fullRouteCoordinates.reverse();
 
@@ -189,8 +187,6 @@
         }
     });
 </script>
-
-
 
 </body>
 </html>
