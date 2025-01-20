@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barbados Voyage Latitude & Longitude</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <style>
+        body, .container {
+            margin: 0;
+            padding: 0;
+            height: 90vh;
+            width: 100vw;
+        }
+
+        #map {
+            height: 100%;
+            width: 70%;
+            float: left;
+        }
+
+        #locations {
+            height: 100%;
+            width: 30%;
+            overflow-y: auto;
+            border-left: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        #locations div {
+            margin-bottom: 10px;
+            cursor: pointer;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        #locations div:hover {
+            background-color: #e9e9e9;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Barbados 1763 Voyage</h1>
+<div class="container">
+    <div id="map"></div>
+    <div id="locations"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-polylinedecorator/1.1.0/leaflet.polylineDecorator.min.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<script>
+    const map = L.map('map').setView([13.1939, -59.5432], 4); // Center on Barbados
+
+    // Add custom tile layer
+    const customTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="http://hot.openstreetmap.org/">Humanitarian OpenStreetMap Team</a>'
+    }).addTo(map);
+
+    const locationDiv = document.getElementById('locations');
+
+    // Haversine formula to calculate distances between coordinates
+    function haversine(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Radius of the Earth in kilometers
+        const toRad = angle => (angle * Math.PI) / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c; // Distance in kilometers
+    }
+
+    // Find the nearest neighbor route
+    function nearestNeighborSort(data, startLat, startLon) {
+        const sorted = [];
+        let currentLat = startLat;
+        let currentLon = startLon;
+
+        while (data.length) {
+            let nearestIndex = 0;
+            let minDistance = Infinity;
+
+            data.forEach((entry, index) => {
+                const lat = parseFloat(entry.latitude);
+                const lon = parseFloat(entry.longitude);
+                const distance = haversine(currentLat, currentLon, lat, lon);
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestIndex = index;
+                }
+            });
+
+            // Add the nearest point to the sorted list and remove it from the data
+            sorted.push(data[nearestIndex]);
+            const nearest = data.splice(nearestIndex, 1)[0];
+            currentLat = parseFloat(nearest.latitude);
+            currentLon = parseFloat(nearest.longitude);
+        }
+
+        return sorted;
+    }
+
+    // Function to determine the appropriate link for each cooridinate 
+    function getLink(entry) {
+        if (entry["Both Links"]) {
+            return `<a href="${entry["Both Links"]}" target="_blank">View Coordinates</a>`;
+        }
+        if (entry["Lon-Link"]) {
+            return `<a href="${entry["Lon-Link"]}" target="_blank">View Longitude</a>`;
+        }
+        if (entry["Lat-Link"]) {
+            return `<a href="${entry["Lat-Link"]}" target="_blank">View Latitude</a>`;
+        }
+        return "No Link Available";
+    }
+
+    // Load the CSV file
+    Papa.parse('/static/mapapp/coordinates.csv', {
+        header: true,
+        download: true,
+        complete: function(results) {
+            console.log("Parsed CSV Data:", results);
+
+            const data = results.data.filter(entry => {
+                const lat = parseFloat(entry.latitude);
+                const lon = parseFloat(entry.longitude);
+                return !isNaN(lat) && !isNaN(lon);
+            });
+
+            // Sort the data using nearest neighbor
+            const startLat = 13.1939;
+            const startLon = -59.5432;
+            const sortedData = nearestNeighborSort(data, startLat, startLon);
+
+            const fullRouteCoordinates = [];
+
+            sortedData.forEach((entry, index) => {
+                const lat = parseFloat(entry.latitude);
+                const lon = parseFloat(entry.longitude);
+
+                fullRouteCoordinates.push([lat, lon]);
+
+                // Add individual marker for each point
+                const title = entry["title"]?.trim() || `Entry ${index + 1}`;
+                const link = getLink(entry);
+
+                const marker = L.marker([lat, lon])
+                    .bindPopup(`<strong>${title}</strong><br>${link}<br>Lat: ${lat}, Lon: ${lon}`)
+                    .addTo(map);
+
+                //  location div
+                const locationItem = document.createElement('div');
+                locationItem.innerHTML = `${title}<br>${link}<br>Lat: ${lat}, Lon: ${lon}`;
+                locationItem.onclick = () => {
+                    map.setView([lat, lon], 10);
+                    marker.openPopup();
+                };
+                locationDiv.appendChild(locationItem);
+            });
+
+                       // Draw the full route connecting all points
+                       if (fullRouteCoordinates.length > 1) {
+                // Reverse the coordinate order 
+                const correctedRouteCoordinates = fullRouteCoordinates.reverse();
+
+                const polyline = L.polyline(correctedRouteCoordinates, { color: 'black', weight: 2 }).addTo(map);
+
+                // Add arrows along the polyline
+                L.polylineDecorator(polyline, {
+                    patterns: [
+                        { offset: '5%', repeat: '10%', symbol: L.Symbol.arrowHead({ pixelSize: 10, polygon: false, pathOptions: { stroke: true, color: 'black' } }) }
+                    ]
+                }).addTo(map);
+            }
+
+        }
+    });
+</script>
+
+
+
+</body>
+</html>
